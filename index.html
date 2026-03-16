@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reading Repository — Sofía Ugarte</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1a1410;
+  --paper: #f7f3ee;
+  --paper2: #f0ebe4;
+  --warm: #c8773a;
+  --warm-light: #f0dcc8;
+  --warm-mid: #e8c5a0;
+  --terra: #8b3a2a;
+  --sage: #4a6741;
+  --sage-light: #e8ede7;
+  --dust: #9e8e7e;
+  --border: #ddd5c8;
+  --white: #ffffff;
+  --purple-light: #ede8f5;
+  --purple: #5a3e7a;
+  --blue-light: #e8eef5;
+  --blue: #2d5a8e;
+  --red-light: #f5e8e8;
+  --red: #8e2d2d;
+  --gold-light: #f5f0e0;
+  --gold: #8e7a2d;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 300;
+  line-height: 1.7;
+  min-height: 100vh;
+}
+
+/* SYNC BANNER */
+.sync-banner {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s;
+  opacity: 0;
+  pointer-events: none;
+}
+.sync-banner.show { opacity: 1; }
+.sync-banner.saving { background: var(--warm-light); color: var(--terra); }
+.sync-banner.saved { background: var(--sage-light); color: var(--sage); }
+.sync-banner.error { background: var(--red-light); color: var(--red); }
+.sync-banner.loading { background: var(--blue-light); color: var(--blue); }
+
+.sync-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.sync-banner.saved .sync-dot,
+.sync-banner.error .sync-dot { animation: none; }
+
+/* HEADER */
+.site-header {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 2.5rem 2rem 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  align-items: end;
+}
+
+.header-title-block .eyebrow {
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dust);
+  margin-bottom: 0.4rem;
+}
+
+.header-title-block h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 400;
+  color: var(--paper);
+  line-height: 1.2;
+}
+
+.header-title-block h1 em {
+  font-style: italic;
+  color: var(--warm);
+}
+
+.header-stats {
+  display: flex;
+  gap: 1.5rem;
+  text-align: right;
+}
+
+.stat-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.6rem;
+  font-weight: 400;
+  color: var(--warm);
+  display: block;
+  line-height: 1;
+}
+.stat-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dust);
+}
+
+.progress-bar-wrap {
+  height: 3px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  margin-top: 1rem;
+  overflow: hidden;
+  max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--warm);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+/* CONTROLS */
+.controls {
+  background: var(--paper2);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 2rem;
+  position: sticky;
+  top: 118px;
+  z-index: 90;
+}
+
+.controls-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+  max-width: 280px;
+}
+
+.search-wrap input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.83rem;
+  color: var(--ink);
+  outline: none;
+}
+.search-wrap input:focus { border-color: var(--warm); }
+
+.search-icon {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--dust);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.filter-group {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 0.32rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--dust);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.filter-btn:hover { border-color: var(--warm); color: var(--warm); }
+.filter-btn.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+
+.add-btn {
+  margin-left: auto;
+  padding: 0.5rem 1.25rem;
+  background: var(--warm);
+  border: none;
+  border-radius: 3px;
+  color: white;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.add-btn:hover { background: var(--terra); }
+
+/* MAIN */
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.section-group { margin-bottom: 3rem; }
+
+.section-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.section-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem;
+  font-weight: 400;
+  color: var(--warm-light);
+  line-height: 1;
+}
+
+.section-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.section-count {
+  font-size: 0.7rem;
+  color: var(--dust);
+  letter-spacing: 0.08em;
+  margin-left: auto;
+}
+
+/* BOOK CARDS */
+.books-grid { display: grid; gap: 1rem; }
+
+.book-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+.book-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+
+.card-top {
+  padding: 1.2rem 1.5rem 1rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  align-items: start;
+  cursor: pointer;
+  user-select: none;
+}
+
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.45rem;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 2px;
+  font-weight: 500;
+}
+.tag-start { background: var(--warm-light); color: var(--terra); }
+.tag-core { background: var(--sage-light); color: var(--sage); }
+.tag-method { background: var(--purple-light); color: var(--purple); }
+.tag-expand { background: var(--red-light); color: var(--red); }
+
+.concept-tag {
+  display: inline-block;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 2px;
+  font-weight: 500;
+  background: var(--gold-light);
+  color: var(--gold);
+}
+
+.book-title-display {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 0.1rem;
+  line-height: 1.3;
+}
+
+.book-author-display {
+  font-size: 0.77rem;
+  font-weight: 500;
+  color: var(--terra);
+  margin-bottom: 0.45rem;
+}
+
+.book-desc {
+  font-size: 0.81rem;
+  color: var(--dust);
+  line-height: 1.6;
+}
+
+.status-block { text-align: right; min-width: 110px; }
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.7rem;
+  border-radius: 20px;
+  font-size: 0.63rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.15s;
+}
+.status-unread { background: var(--paper2); color: var(--dust); border: 1px solid var(--border); }
+.status-reading { background: var(--blue-light); color: var(--blue); }
+.status-done { background: var(--sage-light); color: var(--sage); }
+
+.expand-hint {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.67rem;
+  color: var(--dust);
+  text-align: right;
+}
+
+/* CARD BODY */
+.card-body {
+  display: none;
+  border-top: 1px solid var(--border);
+  padding: 1.25rem 1.5rem 1.5rem;
+  background: #fdfaf7;
+}
+.card-body.open { display: block; }
+
+.reflection-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.reflection-field label {
+  display: block;
+  font-size: 0.63rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--warm);
+  margin-bottom: 0.4rem;
+  font-weight: 500;
+}
+
+.reflection-field textarea {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 300;
+  color: var(--ink);
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+  min-height: 95px;
+}
+.reflection-field textarea:focus { border-color: var(--warm); }
+.reflection-full { grid-column: 1 / -1; }
+
+.field-saved {
+  font-size: 0.68rem;
+  color: var(--sage);
+  margin-top: 0.3rem;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.field-saved.show { opacity: 1; }
+
+/* LOADING STATE */
+.loading-state {
+  text-align: center;
+  padding: 5rem 2rem;
+  color: var(--dust);
+}
+.loading-spinner {
+  width: 32px; height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--warm);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 1rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--dust);
+  font-size: 0.9rem;
+}
+
+/* MODAL */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(26,20,16,0.6);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--paper);
+  border-radius: 6px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.35rem;
+  font-weight: 400;
+  margin-bottom: 1.5rem;
+}
+
+.form-field { margin-bottom: 1rem; }
+.form-field label {
+  display: block;
+  font-size: 0.63rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--warm);
+  margin-bottom: 0.4rem;
+  font-weight: 500;
+}
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.84rem;
+  color: var(--ink);
+  outline: none;
+}
+.form-field textarea { min-height: 80px; resize: vertical; }
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  justify-content: flex-end;
+}
+.btn-cancel {
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  border-radius: 3px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  color: var(--dust);
+  cursor: pointer;
+}
+.btn-save {
+  padding: 0.5rem 1.5rem;
+  background: var(--ink);
+  border: none;
+  border-radius: 3px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  color: var(--paper);
+  cursor: pointer;
+}
+.btn-save:hover { background: var(--terra); }
+
+footer {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--dust);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+footer a { color: var(--warm); text-decoration: none; }
+
+@media (max-width: 640px) {
+  .reflection-grid { grid-template-columns: 1fr; }
+  .header-stats { display: none; }
+  .card-top { grid-template-columns: 1fr; }
+  .controls-inner { gap: 0.5rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- SYNC BANNER -->
+<div class="sync-banner" id="sync-banner">
+  <div class="sync-dot"></div>
+  <span id="sync-msg">Saving…</span>
+</div>
+
+<!-- HEADER -->
+<header class="site-header">
+  <div class="header-inner">
+    <div class="header-title-block">
+      <p class="eyebrow">PhD Reading Repository · TBGD · NMSU · Cloud Synced</p>
+      <h1>Sofía Ugarte — <em>Schooled into Silence</em></h1>
+    </div>
+    <div class="header-stats">
+      <div class="stat">
+        <span class="stat-num" id="stat-total">—</span>
+        <span class="stat-label">Total</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num" id="stat-reading">—</span>
+        <span class="stat-label">Reading</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num" id="stat-done">—</span>
+        <span class="stat-label">Complete</span>
+      </div>
+    </div>
+  </div>
+  <div style="max-width:1100px;margin:0.75rem auto 0;">
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+    </div>
+  </div>
+</header>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <div class="controls-inner">
+    <div class="search-wrap">
+      <span class="search-icon">&#9906;</span>
+      <input type="text" id="search-input" placeholder="Search author, title, concept…" oninput="applyFilters()">
+    </div>
+    <div class="filter-group" id="section-filters">
+      <button class="filter-btn active" data-filter="all" onclick="setFilter(this,'section')">All</button>
+      <button class="filter-btn" data-filter="01" onclick="setFilter(this,'section')">01 Anchors</button>
+      <button class="filter-btn" data-filter="02" onclick="setFilter(this,'section')">02 Schools</button>
+      <button class="filter-btn" data-filter="03" onclick="setFilter(this,'section')">03 Language</button>
+      <button class="filter-btn" data-filter="04" onclick="setFilter(this,'section')">04 Methods</button>
+      <button class="filter-btn" data-filter="05" onclick="setFilter(this,'section')">05 Indigenous</button>
+      <button class="filter-btn" data-filter="06" onclick="setFilter(this,'section')">06 Comparative</button>
+    </div>
+    <div class="filter-group" id="status-filters">
+      <button class="filter-btn active" data-filter="all" onclick="setFilter(this,'status')">All</button>
+      <button class="filter-btn" data-filter="unread" onclick="setFilter(this,'status')">Unread</button>
+      <button class="filter-btn" data-filter="reading" onclick="setFilter(this,'status')">Reading</button>
+      <button class="filter-btn" data-filter="done" onclick="setFilter(this,'status')">Done</button>
+    </div>
+    <button class="add-btn" onclick="openModal()">+ Add Reading</button>
+  </div>
+</div>
+
+<main class="main" id="main-content">
+  <div class="loading-state">
+    <div class="loading-spinner"></div>
+    <p>Loading your repository…</p>
+  </div>
+</main>
+
+<footer>
+  <span>Sofía Ugarte · PhD Transborder & Global Human Dynamics · NMSU · 2026</span>
+  <span>☁ Synced to Google Sheets · <a href="https://docs.google.com/spreadsheets" target="_blank">Open Sheet</a></span>
+</footer>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>Add a Reading</h2>
+    <div class="form-field">
+      <label>Title</label>
+      <input type="text" id="f-title" placeholder="Book or article title">
+    </div>
+    <div class="form-field">
+      <label>Author & Year</label>
+      <input type="text" id="f-author" placeholder="e.g. Gloria Anzaldúa (1987)">
+    </div>
+    <div class="form-field">
+      <label>Section</label>
+      <select id="f-section">
+        <option value="01">01 — Epistemological Anchors</option>
+        <option value="02">02 — Schools as Colonial Technologies</option>
+        <option value="03">03 — Linguistic Violence & Heritage Loss</option>
+        <option value="04">04 — Decolonial Research Methods</option>
+        <option value="05">05 — Indigenous Languages & Layered Coloniality</option>
+        <option value="06">06 — Comparative Context</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label>Type</label>
+      <select id="f-type">
+        <option value="start">Start here — foundational</option>
+        <option value="core">Core theory</option>
+        <option value="method">Methodology</option>
+        <option value="expand">Expand</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label>Theoretical concepts (comma separated)</label>
+      <input type="text" id="f-concepts" placeholder="e.g. coloniality of power, linguistic violence">
+    </div>
+    <div class="form-field">
+      <label>Why this text matters for your research</label>
+      <textarea id="f-desc" placeholder="Brief note on relevance…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveNewBook()">Add to Repository</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCovhnUgqVG5WlVHw6VAY9mRGWaV-TBg6IQMzBG9BZT_UIc0tCDhXpY-Xuy2fx22TD/exec";
+
+const SECTIONS = {
+  "01": "Epistemological Anchors",
+  "02": "Schools as Colonial Technologies",
+  "03": "Linguistic Violence & Heritage Loss",
+  "04": "Decolonial Research Methods",
+  "05": "Indigenous Languages & Layered Coloniality",
+  "06": "Comparative Context"
+};
+
+const DEFAULT_BOOKS = [
+  { id:"b001", section:"01", type:"start", title:"Borderlands / La Frontera: The New Mestiza", author:"Gloria Anzaldúa (1987)", concepts:["linguistic violence","la herida abierta","borderlands","mestiza consciousness"], desc:"Your most important text. Chapters 5 and 7 directly theorize linguistic violence and the psychic wound of language shame. Her concept of la herida abierta is the emotional and theoretical center of your dissertation.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b002", section:"01", type:"core", title:"Coloniality of Power, Eurocentrism, and Latin America", author:"Aníbal Quijano (2000)", concepts:["coloniality of power","racial hierarchy","decolonial theory"], desc:"The structural foundation. Quijano shows how racial hierarchy was the organizing principle of colonial capitalism and persists in institutional form. Read before Mignolo.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b003", section:"01", type:"core", title:"Local Histories / Global Designs", author:"Walter Mignolo (2000)", concepts:["coloniality of knowledge","border thinking","epistemology"], desc:"Extends Quijano into epistemology — the coloniality of knowledge. Suppressing Spanish was not just cultural but an epistemological act: erasing ways of knowing, not just ways of speaking.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b004", section:"01", type:"core", title:"On the Coloniality of Being", author:"Nelson Maldonado-Torres (2007)", concepts:["coloniality of being","ontology","existential colonialism"], desc:"The existential dimension of coloniality — what it does to the human sense of being and belonging. Key for theorizing what third-generation descendants are grieving: not just a language, but an ontological wholeness.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b005", section:"01", type:"core", title:"La Guerra Silenciosa / Essays on Gender and Territory", author:"Rita Segato (2010)", concepts:["territory as body","gender and coloniality","patriarchal violence"], desc:"Territory as body, body as territory. Essential for the gendered dimension of your research — how girls were punished differently and tracked toward domestic labor.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b006", section:"02", type:"start", title:"Subtractive Schooling: U.S.-Mexican Youth and the Politics of Caring", author:"Angela Valenzuela (1999)", concepts:["subtractive schooling","cultural stripping","academic tracking","counselor bias"], desc:"Your anchor text for the tracking argument. Valenzuela documents how schools subtract cultural and linguistic resources from Mexican-origin students. The counselor bias you identified is detailed here with ethnographic precision.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b007", section:"02", type:"core", title:"The Other Struggle for Equal Schools", author:"Rubén Donato (1997)", concepts:["school segregation","Mexican-American history","labor tracking"], desc:"The historical record of Mexican school segregation in the Southwest. Documents the deliberate tracking toward agricultural and manual labor — the archive behind the intergenerational stories your participants will tell.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b008", section:"02", type:"expand", title:"Looking Like a Language, Sounding Like a Race", author:"Jonathan Rosa (2019)", concepts:["raciolinguistics","Latinx youth","language and race"], desc:"Rosa shows how Latinx youth are raciolinguistically marked — heard and seen through a racial lens regardless of what language they speak. Bridges your historical analysis to the present.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b009", section:"03", type:"start", title:"Translanguaging: Language, Bilingualism and Education", author:"Ofelia García & Li Wei (2014)", concepts:["translanguaging","bilingualism","linguistic repertoire"], desc:"Translanguaging — the idea that bilinguals draw from one integrated linguistic repertoire. The suppression of Spanish didn't just remove a language; it fractured a unified way of being.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b010", section:"03", type:"core", title:"Growing Up Bilingual: Puerto Rican Children in New York", author:"Ana Celia Zentella (1997)", concepts:["language shame","Spanglish","bilingual identity"], desc:"Zentella's foundational work on Spanglish and identity. Her concept of language shame internalized from institutional shaming is directly applicable to your three-generation research.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b011", section:"03", type:"expand", title:"Reversing Language Shift", author:"Joshua Fishman (1991)", concepts:["language shift","intergenerational transmission","heritage language"], desc:"Fishman's Graded Intergenerational Disruption Scale gives you a structural model for understanding where your three-generation families fall in the arc of language shift.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b012", section:"04", type:"start", title:"Decolonizing Methodologies: Research and Indigenous Peoples", author:"Linda Tuhiwai Smith (1999)", concepts:["decolonial methodology","research ethics","community accountability"], desc:"The foundational text of decolonial methodology. Smith asks who research is for, who it harms, and what it owes. Read before you design your methodology.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b013", section:"04", type:"start", title:"Decolonization Is Not a Metaphor", author:"Eve Tuck & K. Wayne Yang (2012)", concepts:["decolonization","damage-based research","settler colonialism","research refusal"], desc:"Free online. Will push you on the tension between cultural reclamation and structural decolonization. Read this early and let it make you uncomfortable — that discomfort is productive.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b014", section:"04", type:"method", title:"Telling to Live: Latina Feminist Testimonios", author:"Latina Feminist Group (2001)", concepts:["testimonio","Latina feminist methodology","positionality as method"], desc:"Collective testimonio by Latina scholars writing themselves into their research. Shows how positionality functions not as disclaimer but as analytical tool. Your grandmother's story belongs here.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b015", section:"04", type:"method", title:"Toward a Critical Race Theory of Education", author:"Gloria Ladson-Billings & William Tate (1995)", concepts:["critical race theory","education policy","structural racism"], desc:"Foundational CRT in education. Gives you the legal and structural vocabulary for arguing that tracking and linguistic suppression were expressions of a racial order.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b016", section:"05", type:"core", title:"La Nación y sus Otros", author:"Rita Segato (2007)", concepts:["indigenous nations","colonial state","living archive of alterity"], desc:"Segato on indigenous nations and the colonial state. Particularly relevant to the layered coloniality of the border where Spanish was itself already a colonial imposition on indigenous languages.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b017", section:"05", type:"expand", title:"Transborder Lives", author:"Lynn Stephen (2007)", concepts:["Mixtec communities","transborder indigenous peoples","migration and language"], desc:"Documents Mixtec indigenous communities living across the US-Mexico border, their languages, and their invisibility within both Mexican and US educational systems.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b018", section:"06", type:"expand", title:"The Wretched of the Earth", author:"Frantz Fanon (1961)", concepts:["colonial education","decolonization","colonial subject formation"], desc:"Chapter on colonial education — how the school functions to produce colonial subjects who despise their own culture. Links your grandmother's experience with the German nuns to the Mexican students on the border.", status:"unread", reflection:"", quotes:"", connection:"" },
+  { id:"b019", section:"06", type:"expand", title:"Pedagogy of the Oppressed", author:"Paulo Freire (1968)", concepts:["banking model of education","conscientization","oppression"], desc:"Re-read Chapter 2 — the banking model — with your research question in mind. The border school that punished Spanish and directed students to farmwork is the banking model in its most violent institutional form.", status:"unread", reflection:"", quotes:"", connection:"" }
+];
+
+// ─── STATE ─────────────────────────────────────────────────────────────────
+let books = [];
+let sectionFilter = "all";
+let statusFilter = "all";
+let saveTimer = null;
+let isFirstLoad = true;
+
+// ─── SYNC ──────────────────────────────────────────────────────────────────
+function showSync(state, msg) {
+  const banner = document.getElementById("sync-banner");
+  const msgEl = document.getElementById("sync-msg");
+  banner.className = `sync-banner show ${state}`;
+  msgEl.textContent = msg;
+  if (state === "saved" || state === "error") {
+    setTimeout(() => { banner.classList.remove("show"); }, 2500);
+  }
+}
+
+// ── localStorage primary sync ────────────────────────────────────────────
+const LS_KEY = "sofia_repo_v3";
+
+function saveLocal() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(books)); } catch(e) {}
+}
+
+function loadLocal() {
+  try {
+    const s = localStorage.getItem(LS_KEY);
+    return s ? JSON.parse(s) : null;
+  } catch(e) { return null; }
+}
+
+function saveToSheet() {
+  showSync("saving", "Saving…");
+  saveLocal();
+  try {
+    let iframe = document.getElementById("save-frame");
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.name = "save-frame";
+      iframe.id = "save-frame";
+      iframe.style.display = "none";
+      document.body.appendChild(iframe);
+    }
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = SCRIPT_URL;
+    form.target = "save-frame";
+    form.style.display = "none";
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "payload";
+    input.value = JSON.stringify({ action: "save", books });
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+    showSync("saved", "✓ Saved");
+  } catch(e) {
+    showSync("saved", "✓ Saved locally");
+  }
+}
+
+function loadFromSheet() {
+  showSync("loading", "Loading…");
+  const local = loadLocal();
+  if (local && local.length > 0) {
+    books = local;
+    showSync("saved", "✓ Loaded");
+    isFirstLoad = false;
+    render();
+    return;
+  }
+  books = DEFAULT_BOOKS.map(b => ({...b}));
+  saveLocal();
+  saveToSheet();
+  showSync("saved", "✓ Ready");
+  isFirstLoad = false;
+  render();
+}
+
+function scheduleSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => saveToSheet(), 1500);
+}
+
+// ─── RENDER ────────────────────────────────────────────────────────────────
+function render() {
+  const main = document.getElementById("main-content");
+  const search = document.getElementById("search-input").value.toLowerCase();
+
+  const filtered = books.filter(b => {
+    const matchSection = sectionFilter === "all" || b.section === sectionFilter;
+    const matchStatus = statusFilter === "all" || b.status === statusFilter;
+    const matchSearch = !search ||
+      (b.title||"").toLowerCase().includes(search) ||
+      (b.author||"").toLowerCase().includes(search) ||
+      (b.concepts||[]).some(c => c.toLowerCase().includes(search)) ||
+      (b.reflection||"").toLowerCase().includes(search) ||
+      (b.connection||"").toLowerCase().includes(search);
+    return matchSection && matchStatus && matchSearch;
+  });
+
+  const grouped = {};
+  filtered.forEach(b => {
+    if (!grouped[b.section]) grouped[b.section] = [];
+    grouped[b.section].push(b);
+  });
+
+  let html = "";
+  Object.keys(SECTIONS).forEach(sec => {
+    if (!grouped[sec] || grouped[sec].length === 0) return;
+    html += `<div class="section-group">
+      <div class="section-heading">
+        <span class="section-num">${sec}</span>
+        <span class="section-title">${SECTIONS[sec]}</span>
+        <span class="section-count">${grouped[sec].length} text${grouped[sec].length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="books-grid">`;
+
+    grouped[sec].forEach(b => {
+      const statusLabel = {unread:"Not started", reading:"Reading now", done:"Complete"}[b.status] || "Not started";
+      const conceptTags = (b.concepts||[]).map(c => `<span class="concept-tag">${c}</span>`).join(" ");
+      const typeBadge = b.type ? `<span class="tag tag-${b.type}">${{start:"Start here",core:"Core theory",method:"Methodology",expand:"Expand"}[b.type]||b.type}</span>` : "";
+      const hasNotes = b.reflection || b.quotes || b.connection;
+
+      html += `<div class="book-card" id="card-${b.id}">
+        <div class="card-top" onclick="toggleCard('${b.id}')">
+          <div class="card-meta">
+            <div class="card-tags">${typeBadge}${conceptTags}</div>
+            <div class="book-title-display">${b.title}</div>
+            <div class="book-author-display">${b.author}</div>
+            <div class="book-desc">${b.desc}</div>
+          </div>
+          <div class="status-block">
+            <button class="status-badge status-${b.status||'unread'}" onclick="cycleStatus(event,'${b.id}')">${statusLabel}</button>
+            <span class="expand-hint">${hasNotes ? '✦ has notes' : '+ add notes'}</span>
+          </div>
+        </div>
+        <div class="card-body" id="body-${b.id}">
+          <div class="reflection-grid">
+            <div class="reflection-field">
+              <label>My Reflection</label>
+              <textarea placeholder="What did this text open up for you? What did it challenge?" onchange="saveField('${b.id}','reflection',this.value)">${b.reflection||""}</textarea>
+            </div>
+            <div class="reflection-field">
+              <label>Key Quotes & Page Numbers</label>
+              <textarea placeholder='p.xx — "quote"' onchange="saveField('${b.id}','quotes',this.value)">${b.quotes||""}</textarea>
+            </div>
+            <div class="reflection-field reflection-full">
+              <label>How This Connects to My Research</label>
+              <textarea placeholder="Which argument, chapter, or research question does this feed into?" onchange="saveField('${b.id}','connection',this.value)">${b.connection||""}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  if (filtered.length === 0) {
+    html = `<div class="empty-state"><p>No readings match your current filters.</p></div>`;
+  }
+
+  main.innerHTML = html;
+  updateStats();
+}
+
+// ─── INTERACTIONS ──────────────────────────────────────────────────────────
+function toggleCard(id) {
+  document.getElementById(`body-${id}`)?.classList.toggle("open");
+}
+
+function cycleStatus(e, id) {
+  e.stopPropagation();
+  const b = books.find(x => x.id === id);
+  if (!b) return;
+  const cycle = ["unread","reading","done"];
+  b.status = cycle[(cycle.indexOf(b.status||"unread") + 1) % cycle.length];
+  render();
+  document.getElementById(`body-${id}`)?.classList.add("open");
+  scheduleSave();
+}
+
+function saveField(id, field, value) {
+  const b = books.find(x => x.id === id);
+  if (!b) return;
+  b[field] = value;
+  scheduleSave();
+}
+
+function setFilter(btn, type) {
+  if (type === "section") {
+    document.querySelectorAll("#section-filters .filter-btn").forEach(b => b.classList.remove("active"));
+    sectionFilter = btn.dataset.filter;
+  } else {
+    document.querySelectorAll("#status-filters .filter-btn").forEach(b => b.classList.remove("active"));
+    statusFilter = btn.dataset.filter;
+  }
+  btn.classList.add("active");
+  render();
+}
+
+function applyFilters() { render(); }
+
+function updateStats() {
+  const total = books.length;
+  const reading = books.filter(b => b.status === "reading").length;
+  const done = books.filter(b => b.status === "done").length;
+  document.getElementById("stat-total").textContent = total;
+  document.getElementById("stat-reading").textContent = reading;
+  document.getElementById("stat-done").textContent = done;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById("progress-bar").style.width = pct + "%";
+}
+
+// ─── MODAL ─────────────────────────────────────────────────────────────────
+function openModal() { document.getElementById("modal").classList.add("open"); }
+
+function closeModal() {
+  document.getElementById("modal").classList.remove("open");
+  ["f-title","f-author","f-concepts","f-desc"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+}
+
+function saveNewBook() {
+  const title = document.getElementById("f-title").value.trim();
+  const author = document.getElementById("f-author").value.trim();
+  if (!title || !author) { alert("Please add at least a title and author."); return; }
+  const concepts = document.getElementById("f-concepts").value
+    .split(",").map(c => c.trim()).filter(Boolean);
+  books.push({
+    id: "b" + Date.now(),
+    section: document.getElementById("f-section").value,
+    type: document.getElementById("f-type").value,
+    title, author, concepts,
+    desc: document.getElementById("f-desc").value.trim(),
+    status: "unread", reflection: "", quotes: "", connection: ""
+  });
+  closeModal();
+  render();
+  saveToSheet();
+}
+
+// ─── INIT ──────────────────────────────────────────────────────────────────
+loadFromSheet();
+</script>
+</body>
+</html>
